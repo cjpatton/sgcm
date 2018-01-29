@@ -574,18 +574,17 @@ func TestGCMDecryptor(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var p, c, tag []byte
+		var p, c []byte
 		for _, chunk := range testChunkSizes {
 			dec.Initialize(nonce, ad)
-			tag = result[len(result)-dec.TagSize():]
-			c = result[:len(result)-dec.TagSize()]
+			c = result
 			p = nil
 			for len(c) >= chunk {
 				p = dec.Next(p, c[:chunk])
 				c = c[chunk:]
 			}
 			p = dec.Next(p, c)
-			p, err = dec.Finalize(p, tag)
+			p, err = dec.Finalize(p)
 
 			if err != nil {
 				t.Fatalf("%d chunk size %d: got error: %s", i, chunk, err)
@@ -617,8 +616,7 @@ func TestGCMDecryptorVerifyOnly(t *testing.T) {
 
 	dec.InitializeVerifyOnly(nonce, ad)
 
-	tag := result[len(result)-dec.TagSize():]
-	c := result[:len(result)-dec.TagSize()]
+	c := result
 	chunk := 7
 	for len(c) >= chunk {
 		if p := dec.Next(nil, c[:chunk]); p != nil {
@@ -630,7 +628,7 @@ func TestGCMDecryptorVerifyOnly(t *testing.T) {
 		t.Error("dec.Next() output a slice, expected nil")
 	}
 
-	if p, err := dec.Finalize(nil, tag); p != nil {
+	if p, err := dec.Finalize(nil); p != nil {
 		t.Error("dec.Finalize() output a slice, expected nil")
 	} else if err != nil {
 		t.Errorf("dec.Finaiize() output error: %s", err)

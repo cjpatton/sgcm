@@ -1,5 +1,7 @@
 package sgcm
 
+// TODO(cjpatton) Update comments in light of changes to interface.
+
 import (
 	"crypto/cipher"
 	"crypto/subtle"
@@ -72,7 +74,7 @@ type AEADDecryptor interface {
 	//
 	// The implementation should panic if Initalize() has not been
 	// called.
-	Finalize(dst, tag []byte) ([]byte, error)
+	Finalize(dst []byte) ([]byte, error)
 }
 
 type gcmStreamer struct {
@@ -188,7 +190,7 @@ func (enc *gcmEncryptor) Next(dst, src []byte) []byte {
 
 		// Append the ciphertext to dst.
 		//
-		// FIXME(cjpatton) Something tells me this is not an efficient use of
+		// NOTE(cjpatton) Something tells me this is not an efficient use of
 		// append.
 		dst = append(dst, enc.buf[:bytes]...)
 
@@ -236,7 +238,8 @@ func (dec *gcmDecryptor) Next(dst, src []byte) []byte {
 
 	// Encrypt and consume all available blocks.
 	bytes := (len(dec.buf) >> 4) << 4
-	if bytes > 0 {
+	if bytes > gcmTagSize {
+		bytes -= gcmTagSize
 		// Update the authenticator state with the ciphertext fragment.
 		dec.update(&dec.y, dec.buf[:bytes])
 
@@ -246,7 +249,7 @@ func (dec *gcmDecryptor) Next(dst, src []byte) []byte {
 
 			// Append the ciphertext to dst.
 			//
-			// FIXME(cjpatton) Something tells me this is not an efficient use of
+			// NOTE(cjpatton) Something tells me this is not an efficient use of
 			// append.
 			dst = append(dst, dec.buf[:bytes]...)
 		}
@@ -262,15 +265,20 @@ func (dec *gcmDecryptor) Next(dst, src []byte) []byte {
 // It then computes the tag for the ciphertext just processed and checks that
 // it is equal to the tag provided by the caller. If the ciphertext is
 // authentic, then it outputs dst; otherwise it outputs nil and an error.
-func (dec *gcmDecryptor) Finalize(dst, tag []byte) ([]byte, error) {
+func (dec *gcmDecryptor) Finalize(dst []byte) ([]byte, error) {
 	// Update the authenticator state with the remaining fragment.
-	dec.update(&dec.y, dec.buf)
+	if len(dec.buf) < gcmTagSize {
+		panic("cipher: ciphertext is too short (must be at least 16 bytes)")
+	}
+	bytes := len(dec.buf) - gcmTagSize
+	dec.update(&dec.y, dec.buf[:bytes])
+	tag := dec.buf[bytes:]
+	dec.z.high -= gcmTagSize
 
 	// Decrypt the last fragment.
 	if !dec.verifyOnly {
-		dec.cipher.Encrypt(dec.counter[:], dec.counter[:])
-		xorBytes(dec.buf, dec.buf, dec.counter[:])
-		dst = append(dst, dec.buf...)
+		dec.counterCrypt(dec.buf[:bytes], dec.buf[:bytes], &dec.counter)
+		dst = append(dst, dec.buf[:bytes]...)
 	}
 
 	// Finalize the authenticator.
