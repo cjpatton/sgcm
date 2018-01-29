@@ -12,7 +12,7 @@
 // - Add a test for gcm.XORKeyStream().
 // - Add tests for gcmStreamer, gcmEncryptor, and gcmDecryptor (sgcm.go).
 
-package gcm
+package sgcm
 
 import (
 	"bytes"

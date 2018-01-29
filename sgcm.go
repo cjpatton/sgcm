@@ -1,4 +1,4 @@
-package gcm
+package sgcm
 
 import (
 	"crypto/cipher"

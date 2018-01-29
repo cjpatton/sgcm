@@ -13,7 +13,7 @@
 // - Modify gcm.deriveCoutner() to expose the starting offset.
 // - Implement gcm.XORKeyStream().
 
-package gcm
+package sgcm
 
 import (
 	"crypto/cipher"
