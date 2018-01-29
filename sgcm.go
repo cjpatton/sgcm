@@ -1,7 +1,5 @@
 package sgcm
 
-// TODO(cjpatton) Update comments in light of changes to interface.
-
 import (
 	"crypto/cipher"
 	"crypto/subtle"
@@ -60,20 +58,10 @@ type AEADDecryptor interface {
 	// modification.
 	Next(dst, src []byte) []byte
 
-	// FinalizeDecrypt takes as input the tag and uses it to authenticate the
-	// ciphertext just processed and returns an indication of whether the
-	// ciphertext is authentic. If the state was initialized with Initialize(),
-	// then the any plaintext still in the buffer is appended to dst and
-	// returend; otherwise, just dst is returned.
-	//
-	// Note a minor asymmetry between streaming encryption and decryption: the
-	// decrypting party needs to know the length of the ciphertext before
-	// processing it so that the tag is processed correctly. If any of the tag
-	// is inadvertently processed by Next(), then Decrypt() will
-	// output an error.
-	//
-	// The implementation should panic if Initalize() has not been
-	// called.
+	// FinalizeDecrypt authenticates the ciphertext just processed and returns
+	// an indication of whether the ciphertext is authentic. If the state was
+	// initialized with Initialize(), then the any plaintext still in the buffer
+	// is appended to dst and returend; otherwise, just dst is returned.
 	Finalize(dst []byte) ([]byte, error)
 }
 
@@ -189,9 +177,6 @@ func (enc *gcmEncryptor) Next(dst, src []byte) []byte {
 		enc.update(&enc.y, enc.buf[:bytes])
 
 		// Append the ciphertext to dst.
-		//
-		// NOTE(cjpatton) Something tells me this is not an efficient use of
-		// append.
 		dst = append(dst, enc.buf[:bytes]...)
 
 		// Remove encrypted blocks from the buffer.
@@ -248,9 +233,6 @@ func (dec *gcmDecryptor) Next(dst, src []byte) []byte {
 			dec.counterCrypt(dec.buf[:bytes], dec.buf[:bytes], &dec.counter)
 
 			// Append the ciphertext to dst.
-			//
-			// NOTE(cjpatton) Something tells me this is not an efficient use of
-			// append.
 			dst = append(dst, dec.buf[:bytes]...)
 		}
 

@@ -467,7 +467,7 @@ func (g *gcm) XORKeyStream(dst, src, nonce []byte, index int) {
 	// Deal with the case in which index is not aligned with the first block.
 	i := index % gcmBlockSize
 	j := gcmBlockSize
-	if len(src) < gcmBlockSize {
+	if len(src)+i < gcmBlockSize {
 		j = len(src) + i
 	}
 	xorBytes(dst, src, mask[i:j])
