@@ -181,17 +181,19 @@ func (enc *gcmEncryptor) Next(dst, src []byte) []byte {
 	bytes := (len(enc.buf) >> 4) << 4
 	if bytes > 0 {
 		// Encrypt full blocks.
-		c := make([]byte, bytes)
-		enc.counterCrypt(c, enc.buf[:bytes], &enc.counter)
+		enc.counterCrypt(enc.buf[:bytes], enc.buf[:bytes], &enc.counter)
+
+		// Update the authenticator state.
+		enc.update(&enc.y, enc.buf[:bytes])
+
+		// Append the ciphertext to dst.
+		//
+		// FIXME(cjpatton) Something tells me this is not an efficient use of
+		// append.
+		dst = append(dst, enc.buf[:bytes]...)
 
 		// Remove encrypted blocks from the buffer.
 		enc.buf = enc.buf[bytes:]
-
-		// Update the authenticator state.
-		enc.update(&enc.y, c)
-
-		// Append the ciphertext to dst.
-		dst = append(dst, c...)
 	}
 
 	return dst
@@ -203,17 +205,15 @@ func (enc *gcmEncryptor) Next(dst, src []byte) []byte {
 func (enc *gcmEncryptor) Finalize(dst []byte) []byte {
 
 	// Encrypt the last chunk and update the authenticator.
-	c := make([]byte, len(enc.buf))
 	enc.cipher.Encrypt(enc.counter[:], enc.counter[:])
-	xorBytes(c, enc.buf, enc.counter[:])
-	enc.update(&enc.y, c)
-	dst = append(dst, c...)
+	xorBytes(enc.buf, enc.buf, enc.counter[:])
+	enc.update(&enc.y, enc.buf)
+	dst = append(dst, enc.buf...)
 
 	// Finalize the authenticator.
-	t := make([]byte, gcmTagSize)
-	enc.finalizeAuth(t)
+	enc.finalizeAuth(enc.counter[:])
 
-	dst = append(dst, t...)
+	dst = append(dst, enc.counter[:]...)
 	return dst
 }
 
@@ -242,11 +242,13 @@ func (dec *gcmDecryptor) Next(dst, src []byte) []byte {
 
 		// Decrypt full blocks.
 		if !dec.verifyOnly {
-			p := make([]byte, bytes)
-			dec.counterCrypt(p, dec.buf[:bytes], &dec.counter)
+			dec.counterCrypt(dec.buf[:bytes], dec.buf[:bytes], &dec.counter)
 
 			// Append the ciphertext to dst.
-			dst = append(dst, p...)
+			//
+			// FIXME(cjpatton) Something tells me this is not an efficient use of
+			// append.
+			dst = append(dst, dec.buf[:bytes]...)
 		}
 
 		// Remove decrypted blocks from the buffer.
@@ -266,22 +268,20 @@ func (dec *gcmDecryptor) Finalize(dst, tag []byte) ([]byte, error) {
 
 	// Decrypt the last fragment.
 	if !dec.verifyOnly {
-		p := make([]byte, len(dec.buf))
 		dec.cipher.Encrypt(dec.counter[:], dec.counter[:])
-		xorBytes(p, dec.buf, dec.counter[:])
-		dst = append(dst, p...)
+		xorBytes(dec.buf, dec.buf, dec.counter[:])
+		dst = append(dst, dec.buf...)
 	}
 
 	// Finalize the authenticator.
-	t := make([]byte, gcmTagSize)
-	dec.finalizeAuth(t)
+	dec.finalizeAuth(dec.counter[:])
 
 	// Check validity of the tag.
 	//
 	// (See gcm.go:210 for an explanation of the inner for-loop.)
-	if subtle.ConstantTimeCompare(tag, t) != 1 {
-		for i := range t {
-			t[i] = 0
+	if subtle.ConstantTimeCompare(tag, dec.counter[:]) != 1 {
+		for i := range dec.counter {
+			dec.counter[i] = 0
 		}
 		return nil, errOpen
 	}
