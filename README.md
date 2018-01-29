@@ -4,4 +4,6 @@ decryption, and verification (meaning the operation does one pass of the
 plaintext or ciphertext), and the ability to efficiently "fast-forward" the key
 stream so as to facilitate random access of the ciphertext.
 
-See LICENSE in this directory for terms of use.
+Much of this code comes from the Go project; see LICENSE in this directory for
+terms of use. For a summary of changes, have a look at:
+https://github.com/golang/go/compare/master...cjpatton:master
