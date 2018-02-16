@@ -451,7 +451,7 @@ func putUint64(out []byte, v uint64) {
 // index) and the source and writes it to the destination.
 func (g *gcm) XORKeyStream(dst, src, nonce []byte, index int) {
 	if len(dst) < len(src) {
-		panic("TODO")
+		panic("cipher: destination is smaller than source")
 	}
 
 	// The set up is similar to Seal() and Open(), but here the initial offset
